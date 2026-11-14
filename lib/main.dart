@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:nes_joystick/joystick/joystick_view.dart';
+import 'package:nes_joystick/splash/splash_view.dart';
 
 void main() {
   runApp(const MyApp());
@@ -20,7 +21,11 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       initialRoute: '/',
-      getPages: [GetPage(name: '/', page: () => JoystickView())],
+
+      getPages: [
+        GetPage(name: '/', page: () => SplashView()),
+        GetPage(name: '/joystick', page: () => JoystickView()),
+      ],
     );
   }
 }
