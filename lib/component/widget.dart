@@ -4,7 +4,7 @@ import 'package:nes_joystick/component/analog_joystick.dart';
 import 'package:nes_joystick/component/colors.dart';
 import 'package:nes_joystick/component/text.dart';
 import 'package:nes_joystick/joystick/joystick_controller.dart';
-import 'package:nes_joystick/joystick/qr_scanner_view.dart';
+import 'package:nes_joystick/qr_scanner/qr_scanner_view.dart';
 
 // Screen size
 SizedBox gapH(double value) => SizedBox(height: value);
@@ -79,9 +79,7 @@ Widget gameHeader(JoystickController ctrl) {
       children: [
         const Icon(Icons.gamepad_rounded, color: primaryColor, size: 28),
         gapW(8),
-
         customSpTxt('NES JOYSTICK', 18, textPrimary, FontWeight.bold),
-
         const Spacer(),
 
         // Supabase connection status
@@ -139,69 +137,7 @@ Widget gameHeader(JoystickController ctrl) {
             label: customSpTxt('SCAN QR', 10, white, FontWeight.bold),
           );
         }),
-
-        gapW(5),
-
-        // Settings dropdown
-        PopupMenuButton<String>(
-          color: surfaceColor,
-          icon: const Icon(
-            Icons.settings_rounded,
-            color: textSecondary,
-            size: 23,
-          ),
-          onSelected: (value) async {
-            if (value == 'scan') {
-              Get.to(() => QRScannerView(ctrl: ctrl));
-            }
-
-            if (value == 'disconnect') {
-              try {
-                await ctrl.disconnectFromSession();
-
-                Get.snackbar(
-                  'Disconnected',
-                  'NESVERSE session disconnected.',
-                  snackPosition: SnackPosition.BOTTOM,
-                );
-              } catch (e) {
-                Get.snackbar('Error', e.toString());
-              }
-            }
-          },
-          itemBuilder: (context) => [
-            PopupMenuItem<String>(
-              value: 'scan',
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.qr_code_scanner,
-                    color: primaryColor,
-                    size: 20,
-                  ),
-                  gapW(10),
-                  customTxt('Scan QR Code', 13, textPrimary, FontWeight.w600),
-                ],
-              ),
-            ),
-
-            if (ctrl.networkConnected.value)
-              PopupMenuItem<String>(
-                value: 'disconnect',
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.link_off_rounded,
-                      color: actionRed,
-                      size: 20,
-                    ),
-                    gapW(10),
-                    customTxt('Disconnect', 13, textPrimary, FontWeight.w600),
-                  ],
-                ),
-              ),
-          ],
-        ),
+        gapW(3),
       ],
     ),
   );
