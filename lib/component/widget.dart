@@ -255,60 +255,64 @@ Widget _buildRightSection(JoystickController ctrl) {
       customSpTxt('ACTION', 10, textMuted, FontWeight.bold),
       gapH(18),
 
-      // Top button - X
+      // Top button - Y
       customHoldButton(
         50,
         50,
-        actionBlue,
+        actionGreen,
         borderLight,
         50,
-        'X',
+        'Y',
         ctrl,
-        customSpTxt('X', 20, white, FontWeight.w900),
+        customSpTxt('Y', 20, white, FontWeight.w900),
       ),
 
       gapH(8),
 
-      // Middle buttons - Y and A
+      // Middle buttons - B and X
       Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Left button - B
           customHoldButton(
             50,
             50,
-            actionGreen,
+            actionRed,
             borderLight,
             50,
-            'Y',
+            'B',
             ctrl,
-            customSpTxt('Y', 20, white, FontWeight.w900),
+            customSpTxt('B', 20, white, FontWeight.w900),
           ),
+
           gapW(65),
+
+          // Right button - X
           customHoldButton(
             50,
             50,
-            actionOrange,
+            actionBlue,
             borderLight,
             50,
-            'A',
+            'X',
             ctrl,
-            customSpTxt('A', 20, white, FontWeight.w900),
+            customSpTxt('X', 20, white, FontWeight.w900),
           ),
         ],
       ),
 
       gapH(8),
 
-      // Bottom button - B
+      // Bottom button - A
       customHoldButton(
         50,
         50,
-        actionRed,
+        actionOrange,
         borderLight,
         50,
-        'B',
+        'A',
         ctrl,
-        customSpTxt('B', 20, white, FontWeight.w900),
+        customSpTxt('A', 20, white, FontWeight.w900),
       ),
     ],
   );

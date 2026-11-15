@@ -24,12 +24,33 @@ class ControllerService {
 
     final completer = Completer<void>();
 
-    channel.subscribe((status, [error]) {
-      if (status == RealtimeSubscribeStatus.subscribed) {
-        _isConnected = true;
+    channel.subscribe((status, [error]) async {
+      if (!identical(_channel, channel)) return;
 
-        if (!completer.isCompleted) {
-          completer.complete();
+      if (status == RealtimeSubscribeStatus.subscribed) {
+        try {
+          // Announce the phone's presence to the website.
+          await channel.track({
+            'client': 'nes_joystick',
+            'status': 'connected',
+            'connected_at': DateTime.now().toIso8601String(),
+          });
+
+          if (!identical(_channel, channel)) return;
+
+          _isConnected = true;
+
+          if (!completer.isCompleted) {
+            completer.complete();
+          }
+        } catch (e) {
+          _isConnected = false;
+
+          if (!completer.isCompleted) {
+            completer.completeError(
+              Exception('Unable to announce controller presence: $e'),
+            );
+          }
         }
       } else if (status == RealtimeSubscribeStatus.channelError ||
           status == RealtimeSubscribeStatus.timedOut ||
@@ -47,7 +68,6 @@ class ControllerService {
     });
 
     try {
-      // Wait until Supabase confirms the subscription.
       await completer.future.timeout(const Duration(seconds: 15));
     } catch (e) {
       if (identical(_channel, channel)) {
@@ -61,9 +81,11 @@ class ControllerService {
   }
 
   Future<void> sendJoystick({required double x, required double y}) async {
-    if (_channel == null || !_isConnected) return;
+    final channel = _channel;
 
-    await _channel!.sendBroadcastMessage(
+    if (channel == null || !_isConnected) return;
+
+    await channel.sendBroadcastMessage(
       event: 'controller_input',
       payload: {'type': 'joystick', 'x': x, 'y': y},
     );
@@ -73,9 +95,11 @@ class ControllerService {
     required String button,
     required bool pressed,
   }) async {
-    if (_channel == null || !_isConnected) return;
+    final channel = _channel;
 
-    await _channel!.sendBroadcastMessage(
+    if (channel == null || !_isConnected) return;
+
+    await channel.sendBroadcastMessage(
       event: 'controller_input',
       payload: {'type': 'button', 'button': button, 'pressed': pressed},
     );
@@ -88,6 +112,13 @@ class ControllerService {
 
     _isConnected = false;
     _channel = null;
+
+    try {
+      // Remove the phone from the channel's presence state.
+      await channel.untrack();
+    } catch (e) {
+      // Continue disconnecting even if untracking fails.
+    }
 
     await SupabaseConfig.client.removeChannel(channel);
   }
