@@ -11,7 +11,6 @@ SizedBox gapH(double value) => SizedBox(height: value);
 SizedBox gapW(double value) => SizedBox(width: value);
 
 double screenHeight(BuildContext context) => MediaQuery.of(context).size.height;
-
 double screenWidth(BuildContext context) => MediaQuery.of(context).size.width;
 
 // Normal button
@@ -137,6 +136,7 @@ Widget gameHeader(JoystickController ctrl) {
             label: customSpTxt('SCAN QR', 10, white, FontWeight.bold),
           );
         }),
+
         gapW(3),
       ],
     ),
@@ -186,6 +186,7 @@ Widget _buildCenterSection(JoystickController ctrl) {
     children: [
       customSpTxt('CONTROLS', 10, textMuted, FontWeight.bold),
       gapH(18),
+
       // Vibration toggle
       Obx(() {
         final bool isVibrationOn = ctrl.vibrationEnabled.value;
@@ -212,6 +213,7 @@ Widget _buildCenterSection(JoystickController ctrl) {
           ),
         );
       }),
+
       gapH(10),
 
       // Select and Start
@@ -228,7 +230,9 @@ Widget _buildCenterSection(JoystickController ctrl) {
             ctrl,
             customSpTxt('SELECT', 9, textPrimary, FontWeight.bold),
           ),
+
           gapW(8),
+
           customHoldButton(
             32,
             65,
@@ -241,6 +245,7 @@ Widget _buildCenterSection(JoystickController ctrl) {
           ),
         ],
       ),
+
       gapH(15),
     ],
   );
@@ -248,71 +253,240 @@ Widget _buildCenterSection(JoystickController ctrl) {
 
 // Right action buttons
 Widget _buildRightSection(JoystickController ctrl) {
-  return Column(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      customSpTxt('ACTION', 10, textMuted, FontWeight.bold),
-      gapH(18),
+  Widget buildActionButton(String button) {
+    final buttonData = {
+      'A': [actionOrange, customSpTxt('A', 20, white, FontWeight.w900)],
+      'B': [actionRed, customSpTxt('B', 20, white, FontWeight.w900)],
+      'X': [actionBlue, customSpTxt('X', 20, white, FontWeight.w900)],
+      'Y': [actionGreen, customSpTxt('Y', 20, white, FontWeight.w900)],
+    };
 
-      // Top button - Y
-      customHoldButton(
-        50,
-        50,
-        actionGreen,
-        borderLight,
-        50,
-        'Y',
-        ctrl,
-        customSpTxt('Y', 20, white, FontWeight.w900),
-      ),
+    final data = buttonData[button]!;
 
-      gapH(8),
+    return customHoldButton(
+      50,
+      50,
+      data[0] as Color,
+      borderLight,
+      50,
+      button,
+      ctrl,
+      data[1] as Widget,
+    );
+  }
 
-      // Middle buttons - B and X
-      Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Left button - B
-          customHoldButton(
-            50,
-            50,
-            actionRed,
-            borderLight,
-            50,
-            'B',
-            ctrl,
-            customSpTxt('B', 20, white, FontWeight.w900),
+  void showButtonSettings() {
+    final screenWidth = Get.width;
+    final dialogWidth = screenWidth > 600 ? 420.0 : screenWidth * 0.85;
+
+    Get.dialog(
+      Dialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: borderLight),
+        ),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: dialogWidth,
+            maxHeight: Get.height * 0.75,
           ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Centered title
+                Center(
+                  child: customSpTxt(
+                    'BUTTON SETTINGS',
+                    16,
+                    white,
+                    FontWeight.w900,
+                  ),
+                ),
 
-          gapW(65),
+                gapH(12),
 
-          // Right button - X
-          customHoldButton(
-            50,
-            50,
-            actionBlue,
-            borderLight,
-            50,
-            'X',
-            ctrl,
-            customSpTxt('X', 20, white, FontWeight.w900),
+                customParaTxt(
+                  'Customize your action button arrangement.',
+                  12,
+                  textMuted,
+                  FontWeight.w500,
+                  TextAlign.center,
+                ),
+
+                gapH(24),
+
+                // Swap and Rotate buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: customButton(
+                        46,
+                        screenWidth,
+                        actionBlue,
+                        borderLight,
+                        10,
+                        () => ctrl.swapActionButtons(),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.swap_horiz,
+                              color: white,
+                              size: 20,
+                            ),
+                            gapW(8),
+                            customSpTxt(
+                              'SWAP A / B',
+                              12,
+                              white,
+                              FontWeight.bold,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    gapW(12),
+
+                    Expanded(
+                      child: customButton(
+                        46,
+                        screenWidth,
+                        actionGreen,
+                        borderLight,
+                        10,
+                        () => ctrl.rotateActionButtons(),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.rotate_right,
+                              color: white,
+                              size: 20,
+                            ),
+                            gapW(8),
+                            customSpTxt(
+                              'ROTATE LAYOUT',
+                              12,
+                              white,
+                              FontWeight.bold,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                gapH(12),
+
+                // Reset layout
+                customButton(
+                  42,
+                  screenWidth,
+                  const Color(0xFF292929),
+                  borderLight,
+                  10,
+                  () => ctrl.resetActionButtons(),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.restart_alt, color: white, size: 20),
+                      gapW(8),
+                      customSpTxt('RESET DEFAULT', 12, white, FontWeight.bold),
+                    ],
+                  ),
+                ),
+
+                gapH(20),
+
+                // Cancel and Done buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: customButton(
+                        42,
+                        screenWidth,
+                        const Color(0xFF292929),
+                        borderLight,
+                        10,
+                        () => Get.back(),
+                        customSpTxt('CANCEL', 12, white, FontWeight.bold),
+                      ),
+                    ),
+
+                    gapW(12),
+
+                    Expanded(
+                      child: customButton(
+                        42,
+                        screenWidth,
+                        actionOrange,
+                        borderLight,
+                        10,
+                        () => Get.back(),
+                        customSpTxt('DONE', 12, white, FontWeight.w900),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
+      barrierDismissible: false,
+    );
+  }
 
-      gapH(8),
+  return Obx(() {
+    final buttons = ctrl.actionButtonOrder;
 
-      // Bottom button - A
-      customHoldButton(
-        50,
-        50,
-        actionOrange,
-        borderLight,
-        50,
-        'A',
-        ctrl,
-        customSpTxt('A', 20, white, FontWeight.w900),
-      ),
-    ],
-  );
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            customSpTxt('ACTION', 10, textMuted, FontWeight.bold),
+            const SizedBox(width: 8),
+
+            GestureDetector(
+              onTap: showButtonSettings,
+              child: const Icon(
+                Icons.settings,
+                color: Colors.white70,
+                size: 17,
+              ),
+            ),
+          ],
+        ),
+
+        gapH(18),
+
+        // Top button
+        buildActionButton(buttons[0]),
+
+        gapH(8),
+
+        // Middle buttons
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            buildActionButton(buttons[1]),
+            gapW(65),
+            buildActionButton(buttons[2]),
+          ],
+        ),
+
+        gapH(8),
+
+        // Bottom button
+        buildActionButton(buttons[3]),
+      ],
+    );
+  });
 }

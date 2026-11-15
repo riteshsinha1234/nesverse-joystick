@@ -4,12 +4,15 @@ import 'package:get/get.dart';
 import 'package:nes_joystick/component/colors.dart';
 import 'package:nes_joystick/component/widget.dart';
 import 'package:nes_joystick/joystick/joystick_controller.dart';
+import 'package:nes_joystick/component/toast.dart';
 
 class JoystickView extends StatelessWidget {
   JoystickView({super.key});
   final JoystickController controller = Get.put(JoystickController());
   @override
   Widget build(BuildContext context) {
+    AppToast.init(context);
+
     return Scaffold(
       backgroundColor: backgroundColor,
       body: SafeArea(

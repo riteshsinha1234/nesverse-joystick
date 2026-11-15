@@ -7,6 +7,7 @@ import 'package:nes_joystick/network/controller_service.dart';
 class JoystickController extends GetxController {
   final Rx<Offset> joystickPosition = Offset.zero.obs;
   final RxSet<String> pressedButtons = <String>{}.obs;
+  final RxList<String> actionButtonOrder = ['Y', 'B', 'X', 'A'].obs;
 
   final RxBool vibrationEnabled = false.obs;
 
@@ -16,6 +17,19 @@ class JoystickController extends GetxController {
   final RxString connectionError = ''.obs;
 
   final ControllerService _controllerService = ControllerService.instance;
+
+  // Turbo button mapping
+  // X = Turbo Jump (A)
+  // Y = Turbo Attack (B)
+  static const Map<String, String> _turboButtonMap = {'X': 'A', 'Y': 'B'};
+
+  // Turbo timing: 100ms per complete press/release cycle
+  static const Duration _turboPressDuration = Duration(milliseconds: 50);
+  static const Duration _turboReleaseDuration = Duration(milliseconds: 50);
+
+  // Track active turbo buttons and their timers
+  final Set<String> _activeTurboButtons = {};
+  final Map<String, Timer> _turboTimers = {};
 
   Future<void> connectToSession(String sessionId) async {
     isConnecting.value = true;
@@ -35,6 +49,9 @@ class JoystickController extends GetxController {
   }
 
   Future<void> disconnectFromSession() async {
+    // Stop turbo before disconnecting
+    await _stopAllTurboButtons();
+
     await _controllerService.disconnect();
 
     networkConnected.value = false;
@@ -78,19 +95,137 @@ class JoystickController extends GetxController {
     unawaited(_controllerService.sendJoystick(x: 0, y: 0));
   }
 
+  // Button press
   void pressButton(String button) {
-    if (pressedButtons.add(button)) {
-      unawaited(_controllerService.sendButton(button: button, pressed: true));
+    if (!pressedButtons.add(button)) return;
+
+    // Check whether this is a turbo button
+    if (_turboButtonMap.containsKey(button)) {
+      _startTurboButton(button);
+      return;
+    }
+
+    // Normal button press
+    unawaited(_controllerService.sendButton(button: button, pressed: true));
+  }
+
+  void swapActionButtons() {
+    final aIndex = actionButtonOrder.indexOf('A');
+    final bIndex = actionButtonOrder.indexOf('B');
+
+    actionButtonOrder[aIndex] = 'B';
+    actionButtonOrder[bIndex] = 'A';
+  }
+
+  void rotateActionButtons() {
+    final first = actionButtonOrder.removeAt(0);
+    actionButtonOrder.add(first);
+  }
+
+  void resetActionButtons() {
+    actionButtonOrder.assignAll(['Y', 'B', 'X', 'A']);
+  }
+
+  // Button release
+  void releaseButton(String button) {
+    if (!pressedButtons.remove(button)) return;
+
+    // Check whether this is a turbo button
+    if (_turboButtonMap.containsKey(button)) {
+      unawaited(_stopTurboButton(button));
+      return;
+    }
+
+    // Normal button release
+    unawaited(_controllerService.sendButton(button: button, pressed: false));
+  }
+
+  // Start turbo
+  void _startTurboButton(String turboButton) {
+    if (!_activeTurboButtons.add(turboButton)) return;
+
+    final targetButton = _turboButtonMap[turboButton]!;
+
+    // Start the first press immediately
+    unawaited(_runTurboCycle(turboButton, targetButton));
+  }
+
+  // Repeated press/release cycle
+  Future<void> _runTurboCycle(String turboButton, String targetButton) async {
+    if (!_activeTurboButtons.contains(turboButton)) return;
+
+    // Press the mapped game button
+    await _controllerService.sendButton(button: targetButton, pressed: true);
+
+    // The turbo button may have been released while sending
+    if (!_activeTurboButtons.contains(turboButton)) {
+      await _controllerService.sendButton(button: targetButton, pressed: false);
+      return;
+    }
+
+    // Keep the button pressed briefly
+    await Future.delayed(_turboPressDuration);
+
+    // Release the mapped game button
+    await _controllerService.sendButton(button: targetButton, pressed: false);
+
+    // Continue only while the physical turbo button is held
+    if (!_activeTurboButtons.contains(turboButton)) return;
+
+    // Wait before the next press
+    _turboTimers[turboButton] = Timer(_turboReleaseDuration, () {
+      _turboTimers.remove(turboButton);
+
+      unawaited(_runTurboCycle(turboButton, targetButton));
+    });
+  }
+
+  // Stop one turbo button
+  Future<void> _stopTurboButton(String turboButton) async {
+    _activeTurboButtons.remove(turboButton);
+
+    // Cancel the next scheduled turbo cycle
+    _turboTimers.remove(turboButton)?.cancel();
+
+    final targetButton = _turboButtonMap[turboButton];
+
+    if (targetButton != null) {
+      // Ensure the mapped game button is released
+      await _controllerService.sendButton(button: targetButton, pressed: false);
     }
   }
 
-  void releaseButton(String button) {
-    if (pressedButtons.remove(button)) {
-      unawaited(_controllerService.sendButton(button: button, pressed: false));
+  // Stop all turbo buttons
+  Future<void> _stopAllTurboButtons() async {
+    final activeButtons = _activeTurboButtons.toList();
+
+    for (final button in activeButtons) {
+      await _stopTurboButton(button);
+      pressedButtons.remove(button);
     }
   }
 
   bool isButtonPressed(String button) {
     return pressedButtons.contains(button);
+  }
+
+  @override
+  void onClose() {
+    // Cancel all scheduled turbo timers
+    for (final timer in _turboTimers.values) {
+      timer.cancel();
+    }
+
+    _turboTimers.clear();
+    _activeTurboButtons.clear();
+
+    // Release mapped buttons when the controller is disposed
+    for (final targetButton in _turboButtonMap.values) {
+      unawaited(
+        _controllerService.sendButton(button: targetButton, pressed: false),
+      );
+    }
+
+    super.onClose();
   }
 }
