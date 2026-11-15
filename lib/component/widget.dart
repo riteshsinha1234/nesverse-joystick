@@ -1,17 +1,20 @@
-//screen size
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:nes_joystick/component/analog_joystick.dart';
 import 'package:nes_joystick/component/colors.dart';
 import 'package:nes_joystick/component/text.dart';
 import 'package:nes_joystick/joystick/joystick_controller.dart';
+import 'package:nes_joystick/joystick/qr_scanner_view.dart';
 
+// Screen size
 SizedBox gapH(double value) => SizedBox(height: value);
 SizedBox gapW(double value) => SizedBox(width: value);
+
 double screenHeight(BuildContext context) => MediaQuery.of(context).size.height;
+
 double screenWidth(BuildContext context) => MediaQuery.of(context).size.width;
 
-//Buttons
+// Normal button
 MaterialButton customButton(
   double ht,
   double wt,
@@ -36,6 +39,38 @@ MaterialButton customButton(
   );
 }
 
+// Hold button - Press and Release
+Widget customHoldButton(
+  double ht,
+  double wt,
+  Color btnclr,
+  Color bdrclr,
+  double rdus,
+  String button,
+  JoystickController ctrl,
+  Widget widget,
+) {
+  return Listener(
+    behavior: HitTestBehavior.opaque,
+    onPointerDown: (_) => ctrl.pressButton(button),
+    onPointerUp: (_) => ctrl.releaseButton(button),
+    onPointerCancel: (_) => ctrl.releaseButton(button),
+    child: SizedBox(
+      width: wt,
+      height: ht,
+      child: Material(
+        color: btnclr,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(rdus),
+          side: BorderSide(color: bdrclr),
+        ),
+        child: Center(child: widget),
+      ),
+    ),
+  );
+}
+
 // Game header
 Widget gameHeader(JoystickController ctrl) {
   return Padding(
@@ -44,15 +79,30 @@ Widget gameHeader(JoystickController ctrl) {
       children: [
         const Icon(Icons.gamepad_rounded, color: primaryColor, size: 28),
         gapW(8),
+
         customSpTxt('NES JOYSTICK', 18, textPrimary, FontWeight.bold),
+
         const Spacer(),
 
-        // Bluetooth status
+        // Supabase connection status
         Obx(() {
-          final isBluetoothOn = ctrl.bluetoothEnabled.value;
+          final connected = ctrl.networkConnected.value;
+          final connecting = ctrl.isConnecting.value;
+
+          final statusText = connecting
+              ? 'CONNECTING'
+              : connected
+              ? 'CONNECTED'
+              : 'NOT CONNECTED';
+
+          final statusColor = connecting
+              ? Colors.orange
+              : connected
+              ? successColor
+              : textMuted;
 
           return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             decoration: BoxDecoration(
               color: surfaceColor,
               borderRadius: BorderRadius.circular(20),
@@ -60,24 +110,37 @@ Widget gameHeader(JoystickController ctrl) {
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.circle,
-                  color: isBluetoothOn ? successColor : textMuted,
-                  size: 8,
-                ),
-                gapW(8),
-                customSpTxt(
-                  isBluetoothOn ? 'BLUETOOTH ON' : 'BLUETOOTH OFF',
-                  10,
-                  textSecondary,
-                  FontWeight.bold,
-                ),
+                Icon(Icons.circle, color: statusColor, size: 8),
+                gapW(7),
+                customSpTxt(statusText, 9, textSecondary, FontWeight.bold),
               ],
             ),
           );
         }),
 
-        gapW(10),
+        gapW(8),
+
+        // Scan QR button
+        Obx(() {
+          return ElevatedButton.icon(
+            onPressed: ctrl.isConnecting.value
+                ? null
+                : () {
+                    Get.to(() => QRScannerView(ctrl: ctrl));
+                  },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            icon: const Icon(Icons.qr_code_scanner_rounded, size: 16),
+            label: customSpTxt('SCAN QR', 10, white, FontWeight.bold),
+          );
+        }),
+
+        gapW(5),
 
         // Settings dropdown
         PopupMenuButton<String>(
@@ -87,36 +150,56 @@ Widget gameHeader(JoystickController ctrl) {
             color: textSecondary,
             size: 23,
           ),
-          onSelected: (value) {
-            if (value == 'bluetooth') {
-              ctrl.toggleBluetooth();
+          onSelected: (value) async {
+            if (value == 'scan') {
+              Get.to(() => QRScannerView(ctrl: ctrl));
+            }
+
+            if (value == 'disconnect') {
+              try {
+                await ctrl.disconnectFromSession();
+
+                Get.snackbar(
+                  'Disconnected',
+                  'NESVERSE session disconnected.',
+                  snackPosition: SnackPosition.BOTTOM,
+                );
+              } catch (e) {
+                Get.snackbar('Error', e.toString());
+              }
             }
           },
           itemBuilder: (context) => [
             PopupMenuItem<String>(
-              value: 'bluetooth',
-              child: Obx(() {
-                final isBluetoothOn = ctrl.bluetoothEnabled.value;
+              value: 'scan',
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.qr_code_scanner,
+                    color: primaryColor,
+                    size: 20,
+                  ),
+                  gapW(10),
+                  customTxt('Scan QR Code', 13, textPrimary, FontWeight.w600),
+                ],
+              ),
+            ),
 
-                return Row(
+            if (ctrl.networkConnected.value)
+              PopupMenuItem<String>(
+                value: 'disconnect',
+                child: Row(
                   children: [
-                    Icon(
-                      Icons.bluetooth,
-                      color: isBluetoothOn ? primaryColor : textSecondary,
+                    const Icon(
+                      Icons.link_off_rounded,
+                      color: actionRed,
                       size: 20,
                     ),
                     gapW(10),
-                    customTxt('Bluetooth', 14, textPrimary, FontWeight.w600),
-                    const Spacer(),
-                    Icon(
-                      isBluetoothOn ? Icons.toggle_on : Icons.toggle_off,
-                      color: isBluetoothOn ? successColor : textMuted,
-                      size: 28,
-                    ),
+                    customTxt('Disconnect', 13, textPrimary, FontWeight.w600),
                   ],
-                );
-              }),
-            ),
+                ),
+              ),
           ],
         ),
       ],
@@ -167,6 +250,8 @@ Widget _buildCenterSection(JoystickController ctrl) {
     children: [
       customSpTxt('CONTROLS', 10, textMuted, FontWeight.bold),
       gapH(18),
+
+      // Vibration toggle
       Obx(() {
         final bool isVibrationOn = ctrl.vibrationEnabled.value;
 
@@ -180,7 +265,7 @@ Widget _buildCenterSection(JoystickController ctrl) {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.vibration_rounded, color: textPrimary, size: 15),
+              const Icon(Icons.vibration_rounded, color: textPrimary, size: 15),
               gapW(6),
               customSpTxt(
                 isVibrationOn ? 'Analog ON' : 'Analog OFF',
@@ -192,27 +277,32 @@ Widget _buildCenterSection(JoystickController ctrl) {
           ),
         );
       }),
+
       gapH(10),
+
+      // Select and Start
       Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          customButton(
+          customHoldButton(
             32,
             65,
             controlButtonColor,
             borderLight,
             18,
-            () => ctrl.pressButton('SELECT'),
+            'SELECT',
+            ctrl,
             customSpTxt('SELECT', 9, textPrimary, FontWeight.bold),
           ),
           gapW(8),
-          customButton(
+          customHoldButton(
             32,
             65,
             controlButtonColor,
             borderLight,
             18,
-            () => ctrl.pressButton('START'),
+            'START',
+            ctrl,
             customSpTxt('START', 9, textPrimary, FontWeight.bold),
           ),
         ],
@@ -230,13 +320,14 @@ Widget _buildRightSection(JoystickController ctrl) {
       gapH(18),
 
       // Top button - X
-      customButton(
+      customHoldButton(
         50,
         50,
         actionBlue,
         borderLight,
         50,
-        () => ctrl.pressButton('X'),
+        'X',
+        ctrl,
         customSpTxt('X', 20, white, FontWeight.w900),
       ),
 
@@ -246,23 +337,25 @@ Widget _buildRightSection(JoystickController ctrl) {
       Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          customButton(
+          customHoldButton(
             50,
             50,
             actionGreen,
             borderLight,
             50,
-            () => ctrl.pressButton('Y'),
+            'Y',
+            ctrl,
             customSpTxt('Y', 20, white, FontWeight.w900),
           ),
           gapW(65),
-          customButton(
+          customHoldButton(
             50,
             50,
             actionOrange,
             borderLight,
             50,
-            () => ctrl.pressButton('A'),
+            'A',
+            ctrl,
             customSpTxt('A', 20, white, FontWeight.w900),
           ),
         ],
@@ -271,13 +364,14 @@ Widget _buildRightSection(JoystickController ctrl) {
       gapH(8),
 
       // Bottom button - B
-      customButton(
+      customHoldButton(
         50,
         50,
         actionRed,
         borderLight,
         50,
-        () => ctrl.pressButton('B'),
+        'B',
+        ctrl,
         customSpTxt('B', 20, white, FontWeight.w900),
       ),
     ],
