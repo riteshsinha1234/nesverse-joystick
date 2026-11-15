@@ -186,7 +186,6 @@ Widget _buildCenterSection(JoystickController ctrl) {
     children: [
       customSpTxt('CONTROLS', 10, textMuted, FontWeight.bold),
       gapH(18),
-
       // Vibration toggle
       Obx(() {
         final bool isVibrationOn = ctrl.vibrationEnabled.value;
@@ -213,7 +212,6 @@ Widget _buildCenterSection(JoystickController ctrl) {
           ),
         );
       }),
-
       gapH(10),
 
       // Select and Start
@@ -243,6 +241,7 @@ Widget _buildCenterSection(JoystickController ctrl) {
           ),
         ],
       ),
+      gapH(15),
     ],
   );
 }

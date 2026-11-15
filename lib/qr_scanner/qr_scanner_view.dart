@@ -31,6 +31,7 @@ class QRScannerView extends StatelessWidget {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
+                  // Camera scanner
                   MobileScanner(
                     controller: controller.scannerController,
                     onDetect: (capture) {
@@ -38,7 +39,7 @@ class QRScannerView extends StatelessWidget {
                     },
                   ),
 
-                  // Dark overlay with transparent QR scanning area
+                  // Dark overlay with a centered transparent scanning area
                   IgnorePointer(
                     child: ColorFiltered(
                       colorFilter: ColorFilter.mode(
@@ -46,6 +47,7 @@ class QRScannerView extends StatelessWidget {
                         BlendMode.srcOut,
                       ),
                       child: Stack(
+                        fit: StackFit.expand,
                         children: [
                           Container(
                             decoration: const BoxDecoration(
@@ -53,8 +55,7 @@ class QRScannerView extends StatelessWidget {
                               backgroundBlendMode: BlendMode.dstOut,
                             ),
                           ),
-                          Align(
-                            alignment: Alignment.center,
+                          Center(
                             child: Container(
                               width: 240,
                               height: 240,
@@ -71,38 +72,43 @@ class QRScannerView extends StatelessWidget {
 
                   // QR scanning frame
                   IgnorePointer(
-                    child: Container(
-                      width: 240,
-                      height: 240,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: primaryColor, width: 4),
-                        borderRadius: BorderRadius.circular(20),
+                    child: Center(
+                      child: Container(
+                        width: 240,
+                        height: 240,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: primaryColor, width: 4),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
                       ),
                     ),
                   ),
 
-                  // Scanning instruction - disappears after 10 seconds
+                  // Scanning instruction
                   Positioned(
                     bottom: 35,
-                    left: 20,
-                    right: 20,
+                    left: 0,
+                    right: 0,
                     child: Obx(
                       () => IgnorePointer(
                         child: AnimatedOpacity(
                           opacity: controller.showInstruction.value ? 1.0 : 0.0,
                           duration: const Duration(milliseconds: 600),
-                          child: Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: surfaceColor.withValues(alpha: 0.5),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: customParaTxt(
-                              'Position the QR code inside the scanning frame.',
-                              8,
-                              textSecondary,
-                              FontWeight.w500,
-                              TextAlign.center,
+                          child: Center(
+                            child: Container(
+                              width: 220,
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: surfaceColor.withValues(alpha: 0.5),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: customParaTxt(
+                                'Position the QR code inside the scanning frame.',
+                                12,
+                                textSecondary,
+                                FontWeight.w500,
+                                TextAlign.center,
+                              ),
                             ),
                           ),
                         ),
@@ -127,14 +133,17 @@ class QRScannerView extends StatelessWidget {
               ),
             ),
 
-            // Bottom buttons
+            // Centered bottom buttons
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Expanded(
+                  // Cancel scanning button
+                  SizedBox(
+                    width: 165,
                     child: customButton(
-                      50,
+                      44,
                       double.infinity,
                       surfaceColor,
                       borderLight,
@@ -142,20 +151,20 @@ class QRScannerView extends StatelessWidget {
                       () => Get.back(),
                       customTxt(
                         'CANCEL SCANNING',
-                        12,
+                        10,
                         textPrimary,
                         FontWeight.bold,
                       ),
                     ),
                   ),
 
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
 
                   // Flashlight button
                   Obx(
                     () => customButton(
-                      50,
-                      55,
+                      44,
+                      48,
                       controller.isTorchOn.value ? primaryColor : surfaceColor,
                       borderLight,
                       8,
@@ -165,7 +174,7 @@ class QRScannerView extends StatelessWidget {
                             ? Icons.flash_on_rounded
                             : Icons.flash_off_rounded,
                         color: textPrimary,
-                        size: 23,
+                        size: 20,
                       ),
                     ),
                   ),
