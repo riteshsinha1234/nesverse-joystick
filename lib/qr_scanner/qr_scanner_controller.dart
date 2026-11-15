@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:nes_joystick/component/colors.dart';
+import 'package:nes_joystick/component/toast.dart';
 import 'package:nes_joystick/joystick/joystick_controller.dart';
 
 class QRScannerController extends GetxController {
@@ -61,14 +61,10 @@ class QRScannerController extends GetxController {
 
         Get.back();
 
-        Get.snackbar(
-          'Connected',
-          'Successfully connected to NESVERSE.',
-          backgroundColor: successColor,
-          colorText: white,
-          snackPosition: SnackPosition.BOTTOM,
-          margin: const EdgeInsets.all(12),
-        );
+        // Show success notification after closing the scanner screen.
+        await Future.delayed(const Duration(milliseconds: 400));
+
+        AppToast.success('Successfully connected to NESVERSE.');
 
         return;
       } catch (e) {
@@ -76,15 +72,7 @@ class QRScannerController extends GetxController {
 
         isProcessing.value = false;
 
-        Get.snackbar(
-          'Pairing failed',
-          e.toString().replaceFirst('Exception: ', ''),
-          backgroundColor: actionRed,
-          colorText: white,
-          snackPosition: SnackPosition.BOTTOM,
-          margin: const EdgeInsets.all(12),
-          duration: const Duration(seconds: 5),
-        );
+        AppToast.error(e.toString().replaceFirst('Exception: ', ''));
 
         try {
           await scannerController.start();
