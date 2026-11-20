@@ -9,7 +9,9 @@ class JoystickController extends GetxController {
   final RxSet<String> pressedButtons = <String>{}.obs;
   final RxList<String> actionButtonOrder = ['Y', 'B', 'X', 'A'].obs;
 
-  final RxBool vibrationEnabled = false.obs;
+  // P1 and P2 visibility
+  final RxBool showP1 = true.obs;
+  final RxBool showP2 = true.obs;
 
   // Supabase connection state
   final RxBool networkConnected = false.obs;
@@ -23,7 +25,15 @@ class JoystickController extends GetxController {
   // Y = Turbo Attack (B)
   static const Map<String, String> _turboButtonMap = {'X': 'A', 'Y': 'B'};
 
-  // Turbo timing: 100ms per complete press/release cycle
+  // Combination button mapping
+  // P1 = A + B
+  // P2 = X + Y
+  static const Map<String, List<String>> _comboButtonMap = {
+    'P1': ['A', 'B'],
+    'P2': ['X', 'Y'],
+  };
+
+  // Turbo timing
   static const Duration _turboPressDuration = Duration(milliseconds: 50);
   static const Duration _turboReleaseDuration = Duration(milliseconds: 50);
 
@@ -37,7 +47,6 @@ class JoystickController extends GetxController {
 
     try {
       await _controllerService.connect(sessionId);
-
       networkConnected.value = _controllerService.isConnected;
     } catch (e) {
       networkConnected.value = false;
@@ -49,17 +58,12 @@ class JoystickController extends GetxController {
   }
 
   Future<void> disconnectFromSession() async {
-    // Stop turbo before disconnecting
-    await _stopAllTurboButtons();
+    await _releaseAllPressedButtons();
 
     await _controllerService.disconnect();
 
     networkConnected.value = false;
     connectionError.value = '';
-  }
-
-  void toggleVibration() {
-    vibrationEnabled.toggle();
   }
 
   // Analog joystick movement
@@ -99,7 +103,17 @@ class JoystickController extends GetxController {
   void pressButton(String button) {
     if (!pressedButtons.add(button)) return;
 
-    // Check whether this is a turbo button
+    // Combination buttons
+    final comboButtons = _comboButtonMap[button];
+
+    if (comboButtons != null) {
+      for (final comboButton in comboButtons) {
+        pressButton(comboButton);
+      }
+      return;
+    }
+
+    // Turbo buttons
     if (_turboButtonMap.containsKey(button)) {
       _startTurboButton(button);
       return;
@@ -109,28 +123,21 @@ class JoystickController extends GetxController {
     unawaited(_controllerService.sendButton(button: button, pressed: true));
   }
 
-  void swapActionButtons() {
-    final aIndex = actionButtonOrder.indexOf('A');
-    final bIndex = actionButtonOrder.indexOf('B');
-
-    actionButtonOrder[aIndex] = 'B';
-    actionButtonOrder[bIndex] = 'A';
-  }
-
-  void rotateActionButtons() {
-    final first = actionButtonOrder.removeAt(0);
-    actionButtonOrder.add(first);
-  }
-
-  void resetActionButtons() {
-    actionButtonOrder.assignAll(['Y', 'B', 'X', 'A']);
-  }
-
   // Button release
   void releaseButton(String button) {
     if (!pressedButtons.remove(button)) return;
 
-    // Check whether this is a turbo button
+    // Combination buttons
+    final comboButtons = _comboButtonMap[button];
+
+    if (comboButtons != null) {
+      for (final comboButton in comboButtons) {
+        releaseButton(comboButton);
+      }
+      return;
+    }
+
+    // Turbo buttons
     if (_turboButtonMap.containsKey(button)) {
       unawaited(_stopTurboButton(button));
       return;
@@ -146,7 +153,6 @@ class JoystickController extends GetxController {
 
     final targetButton = _turboButtonMap[turboButton]!;
 
-    // Start the first press immediately
     unawaited(_runTurboCycle(turboButton, targetButton));
   }
 
@@ -154,25 +160,19 @@ class JoystickController extends GetxController {
   Future<void> _runTurboCycle(String turboButton, String targetButton) async {
     if (!_activeTurboButtons.contains(turboButton)) return;
 
-    // Press the mapped game button
     await _controllerService.sendButton(button: targetButton, pressed: true);
 
-    // The turbo button may have been released while sending
     if (!_activeTurboButtons.contains(turboButton)) {
       await _controllerService.sendButton(button: targetButton, pressed: false);
       return;
     }
 
-    // Keep the button pressed briefly
     await Future.delayed(_turboPressDuration);
 
-    // Release the mapped game button
     await _controllerService.sendButton(button: targetButton, pressed: false);
 
-    // Continue only while the physical turbo button is held
     if (!_activeTurboButtons.contains(turboButton)) return;
 
-    // Wait before the next press
     _turboTimers[turboButton] = Timer(_turboReleaseDuration, () {
       _turboTimers.remove(turboButton);
 
@@ -184,15 +184,27 @@ class JoystickController extends GetxController {
   Future<void> _stopTurboButton(String turboButton) async {
     _activeTurboButtons.remove(turboButton);
 
-    // Cancel the next scheduled turbo cycle
     _turboTimers.remove(turboButton)?.cancel();
 
     final targetButton = _turboButtonMap[turboButton];
 
     if (targetButton != null) {
-      // Ensure the mapped game button is released
       await _controllerService.sendButton(button: targetButton, pressed: false);
     }
+  }
+
+  // Release every currently pressed button
+  Future<void> _releaseAllPressedButtons() async {
+    final buttons = pressedButtons.toList();
+
+    for (final button in buttons) {
+      releaseButton(button);
+    }
+
+    // Ensure all turbo buttons are stopped
+    await _stopAllTurboButtons();
+
+    pressedButtons.clear();
   }
 
   // Stop all turbo buttons
@@ -201,8 +213,45 @@ class JoystickController extends GetxController {
 
     for (final button in activeButtons) {
       await _stopTurboButton(button);
-      pressedButtons.remove(button);
     }
+  }
+
+  // Swap A and B positions
+  void swapActionButtons() {
+    final aIndex = actionButtonOrder.indexOf('A');
+    final bIndex = actionButtonOrder.indexOf('B');
+
+    actionButtonOrder[aIndex] = 'B';
+    actionButtonOrder[bIndex] = 'A';
+  }
+
+  // Rotate action buttons
+  void rotateActionButtons() {
+    final first = actionButtonOrder.removeAt(0);
+    actionButtonOrder.add(first);
+  }
+
+  // Reset action button positions
+  void resetActionButtons() {
+    actionButtonOrder.assignAll(['Y', 'B', 'X', 'A']);
+    showP1.value = true;
+    showP2.value = true;
+  }
+
+  // Toggle P1 visibility
+  void toggleP1Visibility() {
+    showP1.value = !showP1.value;
+  }
+
+  // Toggle P2 visibility
+  void toggleP2Visibility() {
+    showP2.value = !showP2.value;
+  }
+
+  // Reset P1 and P2 visibility
+  void resetExtraButtonVisibility() {
+    showP1.value = true;
+    showP2.value = true;
   }
 
   bool isButtonPressed(String button) {
@@ -219,12 +268,17 @@ class JoystickController extends GetxController {
     _turboTimers.clear();
     _activeTurboButtons.clear();
 
-    // Release mapped buttons when the controller is disposed
+    // Release mapped game buttons
     for (final targetButton in _turboButtonMap.values) {
       unawaited(
         _controllerService.sendButton(button: targetButton, pressed: false),
       );
     }
+
+    // Release normal combination buttons
+    unawaited(_controllerService.sendButton(button: 'A', pressed: false));
+
+    unawaited(_controllerService.sendButton(button: 'B', pressed: false));
 
     super.onClose();
   }
